@@ -1,0 +1,35 @@
+{
+  "editor.rulers": [100, 120],
+  "editor.tabCompletion": "on",
+  "editor.tabSize": 2,
+  "editor.trimAutoWhitespace": true,
+  "editor.formatOnSave": true,
+
+  "files.exclude": {
+    "**/.DS_Store": true,
+    "**/.git": true,
+    "**/.hg": true,
+    "**/.svn": true,
+    "**/CVS": true,
+    "dist": true,
+  },
+  "files.insertFinalNewline": true,
+  "files.trimTrailingWhitespace": true,
+
+  "typescript.tsdk": "./node_modules/typescript/lib",
+  "eslint.autoFixOnSave": true,
+  "eslint.run": "onSave",
+  "eslint.nodePath": "./node_modules",
+  "eslint.validate": [
+    "javascript",
+    {
+        "language": "typescript",
+        "autoFix": true
+    }
+  ],
+  "workbench.colorCustomizations": {
+    "activityBar.background": "#0D2968",
+    "titleBar.activeBackground": "#133A91",
+    "titleBar.activeForeground": "#FBFCFE"
+  }
+}
