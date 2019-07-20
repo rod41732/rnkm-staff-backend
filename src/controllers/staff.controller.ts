@@ -17,9 +17,9 @@ import {Staff} from '../models';
 import {StaffRepository} from '../repositories';
 import {inject} from '@loopback/context';
 import {Request, Response} from '@loopback/rest';
-import {HashServiceBinding, JwtServiceBinding} from '../bindings';
+import {HashServiceBinding, JwtServiceBinding, PayloadBinding} from '../bindings';
 import {HashService} from '../services/hash.service';
-import {JwtService} from '../services/jwt.service';
+import {JwtService, Payload} from '../services/jwt.service';
 
 type credentials = {
   id: string;
@@ -36,6 +36,16 @@ export class StaffController {
     @inject(HashServiceBinding) private hashService: HashService,
     @inject(JwtServiceBinding) private jwtService: JwtService,
   ) {}
+
+  @get('/me', {
+    description: 'get detail of current user',
+    responses: {
+      '200': {},
+    },
+  })
+  async getCurrentUser(@inject(PayloadBinding) user: Payload) {
+    return user;
+  }
 
   @post('/login', {
     responses: {
@@ -83,7 +93,8 @@ export class StaffController {
       const cookie = await this.jwtService.setCookie(payload);
       this.response.status(200).send('Login OK' + cookie);
     } catch (err) {
-      throw new HttpErrors.Unauthorized('Bad username or password');
+      console.log(err);
+      throw new HttpErrors.Unauthorized('wrong username or password');
     }
   }
 
@@ -99,29 +110,15 @@ export class StaffController {
     @requestBody({
       content: {
         'application/json': {
-          schema: getModelSchemaRef(Staff, {exclude: ['id']}),
+          schema: getModelSchemaRef(Staff),
         },
       },
     })
-    staff: Omit<Staff, 'id'>,
+    staff: Staff,
   ): Promise<Staff> {
     staff.password = this.hashService.hash(staff.password);
     return await this.staffRepository.create(staff);
   }
-
-  // @get('/staff/count', {
-  //   responses: {
-  //     '200': {
-  //       description: 'Staff model count',
-  //       content: {'application/json': {schema: CountSchema}},
-  //     },
-  //   },
-  // })
-  // async count(
-  //   @param.query.object('where', getWhereSchemaFor(Staff)) where?: Where<Staff>,
-  // ): Promise<Count> {
-  //   return await this.staffRepository.count(where);
-  // }
 
   @get('/staff', {
     responses: {
@@ -140,84 +137,4 @@ export class StaffController {
   ): Promise<Staff[]> {
     return await this.staffRepository.find(filter);
   }
-
-  // @patch('/staff', {
-  //   responses: {
-  //     '200': {
-  //       description: 'Staff PATCH success count',
-  //       content: {'application/json': {schema: CountSchema}},
-  //     },
-  //   },
-  // })
-  // async updateAll(
-  //   @requestBody({
-  //     content: {
-  //       'application/json': {
-  //         schema: getModelSchemaRef(Staff, {partial: true}),
-  //       },
-  //     },
-  //   })
-  //   staff: Staff,
-  //   @param.query.object('where', getWhereSchemaFor(Staff)) where?: Where<Staff>,
-  // ): Promise<Count> {
-  //   return await this.staffRepository.updateAll(staff, where);
-  // }
-
-  // @get('/staff/{id}', {
-  //   responses: {
-  //     '200': {
-  //       description: 'Staff model instance',
-  //       content: {'application/json': {schema: {'x-ts-type': Staff}}},
-  //     },
-  //   },
-  // })
-  // async findById(@param.path.string('id') id: string): Promise<Staff> {
-  //   return await this.staffRepository.findById(id);
-  // }
-
-  // @patch('/staff/{id}', {
-  //   responses: {
-  //     '204': {
-  //       description: 'Staff PATCH success',
-  //     },
-  //   },
-  // })
-  // async updateById(
-  //   @param.path.string('id') id: string,
-  //   @requestBody({
-  //     content: {
-  //       'application/json': {
-  //         schema: getModelSchemaRef(Staff, {partial: true}),
-  //       },
-  //     },
-  //   })
-  //   staff: Staff,
-  // ): Promise<void> {
-  //   await this.staffRepository.updateById(id, staff);
-  // }
-
-  // @put('/staff/{id}', {
-  //   responses: {
-  //     '204': {
-  //       description: 'Staff PUT success',
-  //     },
-  //   },
-  // })
-  // async replaceById(
-  //   @param.path.string('id') id: string,
-  //   @requestBody() staff: Staff,
-  // ): Promise<void> {
-  //   await this.staffRepository.replaceById(id, staff);
-  // }
-
-  // @del('/staff/{id}', {
-  //   responses: {
-  //     '204': {
-  //       description: 'Staff DELETE success',
-  //     },
-  //   },
-  // })
-  // async deleteById(@param.path.string('id') id: string): Promise<void> {
-  //   await this.staffRepository.deleteById(id);
-  // }
 }
