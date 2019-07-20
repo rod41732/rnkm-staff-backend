@@ -1,4 +1,12 @@
-import {Count, CountSchema, Filter, repository, Where, Condition} from '@loopback/repository';
+import {
+  Count,
+  CountSchema,
+  Filter,
+  repository,
+  Where,
+  Condition,
+  Fields,
+} from '@loopback/repository';
 import {
   post,
   param,
@@ -51,7 +59,10 @@ export class StudentController {
       },
     },
   })
-  async queryStudent(@requestBody() filter: object, @inject(PayloadBinding) user: Payload) {
+  async queryStudent(
+    @requestBody() filter: Filter<Student>,
+    @inject(PayloadBinding) user: Payload,
+  ) {
     if (user === null) {
       throw new HttpErrors.Unauthorized('No token, please login first');
     }
@@ -66,7 +77,7 @@ export class StudentController {
       const students = this.studentRepository.find({
         where: {
           and: [
-            filter,
+            filter.where || {},
             {
               baan: {
                 inq: user.allowedBaans,
@@ -74,9 +85,9 @@ export class StudentController {
             },
           ],
         },
-        limit: 5,
-        offset: 0,
-        // TODO: orders, fields
+        limit: Math.min(filter.limit || 20, 20), // limit to 20
+        offset: filter.offset || 0,
+        fields: makeFieldRestriction(user.allowedColumns || []),
       });
       return students;
     } catch (err) {
@@ -126,7 +137,15 @@ export class StudentController {
         firstName: faker.name.firstName(),
         lastName: faker.name.lastName(),
         baan: faker.random.arrayElement(baanList),
-        allergy: '1234',
+        allergy: faker.random.arrayElement([
+          'Dust',
+          'Power',
+          'Paracetamol',
+          'Seafood',
+          'None',
+          'Fish',
+          'Pork',
+        ]),
         phone: faker.phone.phoneNumber('08#-###-####'),
         guardianPhone: faker.phone.phoneNumber('08#-###-####'),
       });
@@ -146,32 +165,21 @@ export class StudentController {
  * @param allowedColumns
  * @param allowedBaans
  */
-function verify(reqFilter: any, allowedColumns: string[], allowedBaans: string[]) {
+function verify(reqFilter: Filter<Student>, allowedColumns: string[], allowedBaans: string[]) {
+  const condition = reqFilter.where;
   const unAllowedColumns = _.filter(
-    _.keys(reqFilter),
+    _.keys(condition),
     (key: string) => !_.includes(allowedColumns, key),
   );
   if (unAllowedColumns.length > 0) {
     // return false
     throw new HttpErrors.Unauthorized('Unallowed Columns found: ' + unAllowedColumns.join(', '));
   }
+  return condition; // return self when validate completed
+}
 
-  // let requestedBaan = [];
-  // if (_.isString(reqFilter.baan)) {
-  //   requestedBaan = [reqFilter.baan];
-  // } else if (_.isString(reqFilter.baan.$eq)) {
-  //   requestedBaan = [reqFilter.baan.$eq];
-  // } else if (_.isArray(reqFilter.baan.$in)) {
-  //   requestedBaan = [reqFilter.baan.$in];
-  // } else if (_.isUndefined(reqFilter.baan)) {
-  //   // return false
-  //   throw new HttpErrors.BadRequest('Bad format of baan query: only $in, $eq allowed!');
-  // }
-  // const unallowedBaans = _.filter(requestedBaan, (baan: string) => !_.includes(allowedBaans, baan));
-  // if (unallowedBaans.length > 0) {
-  //   // return false
-  //   throw new HttpErrors.Unauthorized('Unallowed baans found: ' + unallowedBaans.join(', '));
-  // }
-  // reqFilter.baan = {$in: requestedBaan};
-  return reqFilter; // return self when validate completed
+function makeFieldRestriction(field: string[]): any {
+  let result: any = {};
+  field.forEach(f => (result[f] = true));
+  return result;
 }
