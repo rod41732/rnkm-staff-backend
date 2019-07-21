@@ -4,13 +4,11 @@ import {RestBindings, Request, HttpErrors, Response} from '@loopback/rest';
 import {repository} from '@loopback/repository';
 import {SessionRepository} from '../repositories';
 import {promisify} from 'util';
-import {verify as _verify, sign as _sign} from 'jsonwebtoken';
+import {verify, sign} from 'jsonwebtoken';
 import * as shortid from 'shortid';
 const cookie = require('cookie');
 
 const jsonwebtoken = require('jsonwebtoken');
-const sign = promisify(_sign);
-const verify = promisify(_verify);
 
 export type Payload = {
   id: string;
@@ -26,6 +24,7 @@ type hasCookie = {
 
 const cookieName = 'token';
 const secret = 'Ac0r38kv1xc0PE9q8zb7Ve0';
+const TOKEN_AGE = '2h';
 
 export class JwtService {
   constructor(
@@ -37,7 +36,7 @@ export class JwtService {
 
   async getPayload(): Promise<Payload | null> {
     try {
-      return <Payload>await verify(this.getCookie(), secret);
+      return <Payload>verify(this.getCookie(), secret);
     } catch (err) {
       return null;
     }
@@ -56,7 +55,7 @@ export class JwtService {
       throw new HttpErrors.Unauthorized('No payload');
     }
     try {
-      const ck = <string>await sign(payload, secret);
+      const ck = sign(payload, secret, {expiresIn: TOKEN_AGE});
       console.log(ck);
       this.response.cookie(cookieName, ck, {
         httpOnly: true,
@@ -67,8 +66,4 @@ export class JwtService {
       throw new HttpErrors.InternalServerError(err);
     }
   }
-
-  // getTokenFromCookie(): string {
-  //   return '' + this.request.headers.cookie;
-  // }
 }

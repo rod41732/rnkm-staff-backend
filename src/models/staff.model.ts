@@ -37,6 +37,14 @@ export class Staff extends Entity {
   })
   allowedColumns: string[];
 
+  @property({
+    type: 'boolean',
+    itemType: 'string',
+    required: true,
+    default: false,
+  })
+  isAdmin: boolean;
+
   constructor(data?: Partial<Staff>) {
     super(data);
   }

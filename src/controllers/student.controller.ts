@@ -19,21 +19,30 @@ import {
   del,
   requestBody,
   HttpErrors,
+  RestBindings,
 } from '@loopback/rest';
 import {Student} from '../models';
 import {StudentRepository} from '../repositories';
 import {inject} from '@loopback/core';
 import {PayloadBinding} from '../bindings';
+import {Request, Response} from '@loopback/rest';
 import {Payload} from '../services/jwt.service';
 import {Connector} from 'loopback-datasource-juggler';
 import {MongoDataSource} from '../datasources';
+import * as shortid from 'shortid';
 const _ = require('lodash');
 const faker = require('faker');
+const cookie = require('cookie');
 const baanList = require('../constant/baanlist').baanList;
+
+const session = new Map();
 export class StudentController {
   constructor(
     @repository(StudentRepository)
     public studentRepository: StudentRepository,
+
+    @inject(RestBindings.Http.REQUEST) private request: Request,
+    @inject(RestBindings.Http.RESPONSE) private response: Response,
   ) {}
 
   @put('/student/create', {
@@ -74,7 +83,7 @@ export class StudentController {
     console.log('After ===============');
 
     try {
-      const students = this.studentRepository.find({
+      const students = await this.studentRepository.find({
         where: {
           and: [
             filter.where || {},
@@ -89,7 +98,22 @@ export class StudentController {
         offset: filter.offset || 0,
         fields: makeFieldRestriction(user.allowedColumns || []),
       });
-      return students;
+      const count = await this.studentRepository.count({
+        and: [
+          filter.where || {},
+          {
+            baan: {
+              inq: user.allowedBaans,
+            },
+          },
+        ],
+      });
+      return {
+        count,
+        students,
+        offset: filter.offset || 0,
+        limit: Math.min(filter.limit || 20, 20), // limit to 20,
+      };
     } catch (err) {
       console.log(err);
       throw new HttpErrors.InternalServerError(err);
@@ -155,6 +179,64 @@ export class StudentController {
       console.log(err);
       throw new HttpErrors.InternalServerError(err);
     }
+  }
+
+  // new paginated find
+  @post('student/find-paginate/new', {
+    responses: {
+      '200': {
+        description: 'Array of students',
+        content: {
+          'application/json': {
+            schema: {type: 'object'},
+          },
+        },
+      },
+    },
+  })
+  async paginatedNew(@requestBody() filter: Condition<Student>) {
+    const id: string = shortid.generate();
+    const students = await this.studentRepository.find({
+      where: filter,
+      limit: 20 + 1,
+      offset: 0,
+    });
+    this.response.cookie('pagination', students.length <= 20 ? -1 : 20);
+    return {
+      students,
+      count: students.length,
+    };
+  }
+
+  // continue paginated find (continue from last query)
+  @post('student/find-paginate/next', {
+    responses: {
+      '200': {
+        description: 'Array of students',
+        content: {
+          'application/json': {
+            schema: {type: 'object'},
+          },
+        },
+      },
+    },
+  })
+  async paginatedCont(@requestBody() filter: Condition<Student>) {
+    const offset = parseInt(cookie.parse(this.request.headers.cookie)['paginate']);
+    if (offset < 0) {
+      throw new HttpErrors.BadRequest('Paginate ended (-1 offset specified)');
+    }
+    const students = await this.studentRepository.find({
+      where: filter,
+      limit: 20 + 1,
+      offset,
+    });
+    this.response.cookie('paginate', students.length <= 20 ? -1 : offset + 20);
+    return {
+      students,
+      count: students.length,
+      currentOffset: offset,
+    };
   }
 }
 
